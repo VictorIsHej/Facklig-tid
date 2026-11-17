@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="sv"><head>
+<html lang="sv">
+<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="format-detection" content="telephone=no">
@@ -279,58 +280,15 @@ details.guide[open] .chev{transform:rotate(90deg)}
     "text": "Skanna QR-koden med mobilens kamera, fyll i ansökan och skicka den till din teamchef."
   },
   "teamLeads": [
-    {
-      "name": "Victor Eriksson",
-      "email": "victor.eriksson@adlibris.com"
-    },
-    {
-      "name": "Linnea Ringström",
-      "email": "linnea.ringstrom@adlibris.com"
-    }
+    { "name": "Teamchef A (exempel)", "email": "teamchef.a@exempel.se" },
+    { "name": "Teamchef B (exempel)", "email": "teamchef.b@exempel.se" }
   ],
   "cc": [],
   "fields": [
-    {
-      "id": "namn",
-      "type": "text",
-      "label": "Namn",
-      "help": "För- och efternamn",
-      "required": true,
-      "remember": true,
-      "locked": true
-    },
-    {
-      "id": "teamchef",
-      "type": "teamlead",
-      "label": "Teamchef",
-      "help": "Ansökan skickas till den teamchef du väljer. Teamchefen bokar in tiden.",
-      "required": true,
-      "remember": true,
-      "locked": true
-    },
-    {
-      "id": "tid",
-      "type": "radio",
-      "label": "Önskad tid",
-      "help": "Ungefär hur lång tid behöver du?",
-      "required": true,
-      "options": [
-        "10 min",
-        "15 min",
-        "30 min",
-        "45 min"
-      ],
-      "allowOther": true,
-      "otherLabel": "Annan tid",
-      "otherPlaceholder": "Skriv hur lång tid du behöver, t.ex. 1 timme"
-    },
-    {
-      "id": "kommentar",
-      "type": "textarea",
-      "label": "Kommentar",
-      "help": "Du behöver inte berätta vad det gäller.",
-      "required": false
-    }
+    { "id": "namn", "type": "text", "label": "Namn", "help": "För- och efternamn", "required": true, "remember": true, "locked": true },
+    { "id": "teamchef", "type": "teamlead", "label": "Teamchef", "help": "Ansökan skickas till den teamchef du väljer. Teamchefen bokar in tiden.", "required": true, "remember": true, "locked": true },
+    { "id": "tid", "type": "radio", "label": "Önskad tid", "help": "Ungefär hur lång tid behöver du?", "required": true, "options": ["10 min", "15 min", "30 min", "45 min"], "allowOther": true, "otherLabel": "Annan tid", "otherPlaceholder": "Skriv hur lång tid du behöver, t.ex. 1 timme" },
+    { "id": "kommentar", "type": "textarea", "label": "Kommentar", "help": "Du behöver inte berätta vad det gäller.", "required": false }
   ]
 }
 </script>
@@ -2143,8 +2101,7 @@ function qrSvg(text) {
 function posterHtml() {
   var url = S.qrUrl.trim();
   return '<div class="poster"><div class="poster-icon">' + ICON.calendar + '</div><h1>' + esc(config.poster.title) + '</h1>' +
-    '<p class="poster-text">' + esc(config.poster.text) + '</p><div class="poster-qr">' + (url ? qrSvg(url) : '<div class="qr-empty">Skriv in sidans adress för att skapa QR-koden</div>') + '</div>' +
-    '<p class="poster-url">' + esc(url.replace(/^https?:\/\//, '').replace(/\/$/, '')) + '</p></div>';
+    '<p class="poster-text">' + esc(config.poster.text) + '</p><div class="poster-qr">' + (url ? qrSvg(url) : '<div class="qr-empty">Skriv in sidans adress för att skapa QR-koden</div>') + '</div></div>';
 }
 function panelQr() {
   return '<div class="panel"><div class="acard"><h2>QR-kod till anslagstavlan</h2><p class="muted">Skriv ut en affisch med QR-kod. Personalen skannar den med mobilkameran och kommer direkt till ansökan.</p>' +
@@ -2421,4 +2378,6 @@ window.addEventListener('beforeunload', function (e) { if (S.admin && isDirty())
 S.values = initValues();
 route();
 })();
-</script></body></html>
+</script>
+</body>
+</html>
