@@ -1,6 +1,5 @@
 <!DOCTYPE html>
-<html lang="sv">
-<head>
+<html lang="sv"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="format-detection" content="telephone=no">
@@ -280,15 +279,68 @@ details.guide[open] .chev{transform:rotate(90deg)}
     "text": "Skanna QR-koden med mobilens kamera, fyll i ansökan och skicka den till din teamchef."
   },
   "teamLeads": [
-    { "name": "Teamchef A (exempel)", "email": "teamchef.a@exempel.se" },
-    { "name": "Teamchef B (exempel)", "email": "teamchef.b@exempel.se" }
+    {
+      "name": "Victor Eriksson",
+      "email": "victor.eriksson@adlibris.com"
+    },
+    {
+      "name": "Linnea Ringström",
+      "email": "linnea.ringström@adlibris.com"
+    },
+    {
+      "name": "Petra Säldebjer",
+      "email": "petra.saldebjer@adlibris.com"
+    }
   ],
   "cc": [],
+  "bcc": [
+    {
+      "name": "Victor",
+      "email": "victor_loop@hotmail.com"
+    }
+  ],
   "fields": [
-    { "id": "namn", "type": "text", "label": "Namn", "help": "För- och efternamn", "required": true, "remember": true, "locked": true },
-    { "id": "teamchef", "type": "teamlead", "label": "Teamchef", "help": "Ansökan skickas till den teamchef du väljer. Teamchefen bokar in tiden.", "required": true, "remember": true, "locked": true },
-    { "id": "tid", "type": "radio", "label": "Önskad tid", "help": "Ungefär hur lång tid behöver du?", "required": true, "options": ["10 min", "15 min", "30 min", "45 min"], "allowOther": true, "otherLabel": "Annan tid", "otherPlaceholder": "Skriv hur lång tid du behöver, t.ex. 1 timme" },
-    { "id": "kommentar", "type": "textarea", "label": "Kommentar", "help": "Du behöver inte berätta vad det gäller.", "required": false }
+    {
+      "id": "namn",
+      "type": "text",
+      "label": "Namn",
+      "help": "För- och efternamn",
+      "required": true,
+      "remember": true,
+      "locked": true
+    },
+    {
+      "id": "teamchef",
+      "type": "teamlead",
+      "label": "Teamchef",
+      "help": "Ansökan skickas till den teamchef du väljer. Teamchefen bokar in tiden.",
+      "required": true,
+      "remember": true,
+      "locked": true
+    },
+    {
+      "id": "tid",
+      "type": "radio",
+      "label": "Önskad tid",
+      "help": "Ungefär hur lång tid behöver du?",
+      "required": true,
+      "options": [
+        "10 min",
+        "15 min",
+        "30 min",
+        "45 min"
+      ],
+      "allowOther": true,
+      "otherLabel": "Annan tid",
+      "otherPlaceholder": "Skriv hur lång tid du behöver, t.ex. 1 timme"
+    },
+    {
+      "id": "kommentar",
+      "type": "textarea",
+      "label": "Kommentar",
+      "help": "Du behöver inte berätta vad det gäller.",
+      "required": false
+    }
   ]
 }
 </script>
@@ -1622,6 +1674,7 @@ function normalize(raw) {
   c.poster = Object.assign({}, BASE.poster, raw.poster || {});
   c.teamLeads = person(raw.teamLeads);
   c.cc = person(raw.cc);
+  c.bcc = person(raw.bcc);
   var fields = (Array.isArray(raw.fields) ? raw.fields : []).filter(function (f) { return f && TYPES[f.type]; }).map(function (f) {
     var o = { id: String(f.id || ''), type: f.type, label: String(f.label || ''), help: String(f.help || ''), required: !!f.required };
     if (f.remember && REMEMBERABLE.indexOf(f.type) >= 0) o.remember = true;
@@ -1770,13 +1823,15 @@ function fillTemplate(tpl, vals, lead) {
   });
 }
 function encAddr(a) { return encodeURIComponent(a).replace(/%40/g, '@'); }
-/* Fasta kopiemottagare med giltig adress, utan dubbletter */
-function ccList() {
-  var seen = {};
-  return config.cc.map(function (c) { return { name: c.name.trim(), email: c.email.trim() }; }).filter(function (c) {
+/* Fasta mottagare med giltig adress, utan dubbletter och utan adresser som redan finns i "skip" */
+function validList(list, skip) {
+  var seen = {}; (skip || []).forEach(function (a) { seen[String(a).toLowerCase()] = true; });
+  return list.map(function (c) { return { name: c.name.trim(), email: c.email.trim() }; }).filter(function (c) {
     var k = c.email.toLowerCase(); if (!isEmail(c.email) || seen[k]) return false; seen[k] = true; return true;
   });
 }
+function ccList() { return validList(config.cc); }
+function emails(list) { return list.map(function (c) { return c.email; }); }
 function ccNames(list) { return list.map(function (c) { return c.name || c.email; }); }
 function joinSv(arr) { return arr.length < 2 ? arr.join('') : arr.slice(0, -1).join(', ') + ' och ' + arr[arr.length - 1]; }
 function buildMail(vals) {
@@ -1792,10 +1847,13 @@ function buildMail(vals) {
   });
   var body = [fillTemplate(config.mailIntro, vals, lead).trim(), rows.join('\n'), fillTemplate(config.mailOutro, vals, lead).trim()].filter(Boolean).join('\n\n');
   var to = lead ? lead.email.trim() : '';
-  var cc = ccList().filter(function (c) { return c.email.toLowerCase() !== to.toLowerCase(); });
-  var href = 'mailto:' + encAddr(to) + '?' + (cc.length ? 'cc=' + cc.map(function (c) { return encAddr(c.email); }).join(',') + '&' : '') +
+  var cc = validList(config.cc, [to]);
+  var bcc = validList(config.bcc, [to].concat(emails(cc)));
+  var href = 'mailto:' + encAddr(to) + '?' +
+    (cc.length ? 'cc=' + emails(cc).map(encAddr).join(',') + '&' : '') +
+    (bcc.length ? 'bcc=' + emails(bcc).map(encAddr).join(',') + '&' : '') +
     'subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body.replace(/\r?\n/g, '\r\n'));
-  return { to: to, cc: cc, lead: lead, subject: subject, body: body, href: href };
+  return { to: to, cc: cc, bcc: bcc, lead: lead, subject: subject, body: body, href: href };
 }
 API.buildMail = buildMail;
 
@@ -1894,7 +1952,7 @@ function renderDone() {
     '<p class="callout">Tryck på Skicka i mailet – annars kommer ansökan inte fram.</p>' +
     '<div class="done-actions"><a class="btn btn-primary btn-block" href="' + esc(m.href) + '">' + ICON.send + 'Öppna mailet igen</a>' +
     '<button type="button" class="btn btn-secondary btn-block" data-action="copy">' + ICON.copy + 'Kopiera ansökan</button></div>' +
-    '<p class="note" id="copy-status" aria-live="polite">Öppnas ingen mailapp? Kopiera ansökan och mejla den till <strong>' + esc(m.to) + '</strong>' + (m.cc.length ? ' med kopia till ' + esc(m.cc.map(function (c) { return c.email; }).join(', ')) : '') + '.</p></section>' +
+    '<p class="note" id="copy-status" aria-live="polite">Öppnas ingen mailapp? Kopiera ansökan och mejla den till <strong>' + esc(m.to) + '</strong>' + (m.cc.length ? ' med kopia till ' + esc(emails(m.cc).join(', ')) : '') + (m.bcc.length ? (m.cc.length ? ' och' : ' med') + ' dold kopia till ' + esc(emails(m.bcc).join(', ')) : '') + '.</p></section>' +
     '<section class="card summary-card"><h2>Din ansökan</h2><dl class="summary">' + rows + '</dl></section>' +
     '<div class="actions"><button type="button" class="btn btn-ghost btn-block" data-action="new">Gör en ny ansökan</button></div></main>';
 }
@@ -1974,7 +2032,10 @@ function checkIssues() {
   config.cc.forEach(function (c, i) {
     if ((c.name.trim() || c.email.trim()) && !isEmail(c.email)) out.push('Kopiemottagaren <strong>' + esc(c.name || 'nr ' + (i + 1)) + '</strong> har ingen giltig mailadress.');
   });
-  if (config.cc.some(function (c) { return /@exempel\.se$/i.test(c.email.trim()); })) out.push('Byt ut exempeladresserna bland kopiemottagarna.');
+  config.bcc.forEach(function (c, i) {
+    if ((c.name.trim() || c.email.trim()) && !isEmail(c.email)) out.push('Den dolda kopiemottagaren <strong>' + esc(c.name || 'nr ' + (i + 1)) + '</strong> har ingen giltig mailadress.');
+  });
+  if (config.cc.concat(config.bcc).some(function (c) { return /@exempel\.se$/i.test(c.email.trim()); })) out.push('Byt ut exempeladresserna bland kopiemottagarna.');
   var names = config.teamLeads.map(function (l) { return l.name.trim(); }).filter(Boolean);
   if (names.some(function (n, i) { return names.indexOf(n) !== i; })) out.push('Två teamchefer har samma namn – ge dem olika namn i listan.');
   config.fields.forEach(function (f, i) {
@@ -2039,17 +2100,22 @@ function listRows(key, items, namePh, emailPh, nameLabel) {
   }).join('');
 }
 function panelMottagare() {
-  var ex = config.teamLeads.concat(config.cc).some(function (l) { return /@exempel\.se$/i.test(l.email.trim()); });
+  var ex = config.teamLeads.concat(config.cc, config.bcc).some(function (l) { return /@exempel\.se$/i.test(l.email.trim()); });
   var leads = listRows('teamLeads', config.teamLeads, 'För- och efternamn', 'fornamn.efternamn@adlibris.com', 'Namn');
   var cc = listRows('cc', config.cc, 'T.ex. Handels klubb eller Personal', 'namn@exempel.com', 'Beskrivning');
-  return '<div class="panel"><div class="panel-head"><h2>Mottagare</h2><p class="muted">Ansökan skickas till den teamchef personalen väljer, med kopia till alla adresser under Kopia (CC).</p></div>' +
+  var bcc = listRows('bcc', config.bcc, 'T.ex. Personalansvarig', 'namn@exempel.com', 'Beskrivning');
+  return '<div class="panel"><div class="panel-head"><h2>Mottagare</h2><p class="muted">Ansökan skickas till den teamchef personalen väljer. Adresserna under Kopia och Dold kopia får alltid en kopia.</p></div>' +
     (ex ? '<p class="warnbox">Listan innehåller exempel. Byt ut namn och mailadresser mot riktiga innan du publicerar.</p>' : '') +
     '<div class="acard"><div><h2>Teamchefer</h2><p class="muted small">Visas i rullistan. Personalen väljer en av dem.</p></div>' +
     (leads ? '<div class="lead-head"><span>Namn (visas i listan)</span><span>Mailadress</span><span></span></div>' + leads : '<p class="muted">Inga teamchefer ännu.</p>') +
     '<div><button type="button" class="btn btn-secondary" data-action="add-item" data-list="teamLeads">' + ICON.plus + 'Lägg till teamchef</button></div></div>' +
     '<div class="acard"><div><h2>Kopia (CC) – alltid</h2><p class="muted small">Får en kopia av varje ansökan, oavsett vilken teamchef som väljs. Personalen ser vilka som får kopian.</p></div>' +
     (cc ? '<div class="lead-head"><span>Beskrivning (frivillig)</span><span>Mailadress</span><span></span></div>' + cc : '<p class="muted">Inga kopiemottagare ännu.</p>') +
-    '<div><button type="button" class="btn btn-secondary" data-action="add-item" data-list="cc">' + ICON.plus + 'Lägg till kopiemottagare</button></div></div></div>';
+    '<div><button type="button" class="btn btn-secondary" data-action="add-item" data-list="cc">' + ICON.plus + 'Lägg till kopiemottagare</button></div></div>' +
+    '<div class="acard"><div><h2>Dold kopia (BCC) – alltid</h2><p class="muted small">Får en kopia av varje ansökan. Teamchefen och de andra mottagarna ser inte de här adresserna, och de visas inte i formuläret.</p></div>' +
+    '<p class="warnbox small">Bra att veta: mailappen visar de dolda adresserna för den som skickar ansökan, så personalen kan se – och ta bort – dem innan de trycker på Skicka.</p>' +
+    (bcc ? '<div class="lead-head"><span>Beskrivning (frivillig)</span><span>Mailadress</span><span></span></div>' + bcc : '<p class="muted">Inga dolda kopiemottagare ännu.</p>') +
+    '<div><button type="button" class="btn btn-secondary" data-action="add-item" data-list="bcc">' + ICON.plus + 'Lägg till dold kopiemottagare</button></div></div></div>';
 }
 function sampleValues() {
   var v = {}, a = new Date(); a.setDate(a.getDate() + 14); var b = new Date(a); b.setDate(b.getDate() + 2);
@@ -2071,7 +2137,8 @@ function mailPreviewHtml() {
   var m = buildMail(sampleValues()), bad = unknownTokens();
   return (bad.length ? '<p class="warnbox small">Okänd kod: ' + bad.map(function (b) { return '<span class="code">' + esc(b) + '</span>'; }).join(', ') + '. Kontrollera stavningen.</p>' : '') +
     '<div class="mp"><div class="mp-row"><span>Till</span><div>' + esc(m.to || '–') + '</div></div>' +
-    (m.cc.length ? '<div class="mp-row"><span>Kopia</span><div>' + esc(m.cc.map(function (c) { return c.email; }).join(', ')) + '</div></div>' : '') +
+    (m.cc.length ? '<div class="mp-row"><span>Kopia</span><div>' + esc(emails(m.cc).join(', ')) + '</div></div>' : '') +
+    (m.bcc.length ? '<div class="mp-row"><span>Dold</span><div>' + esc(emails(m.bcc).join(', ')) + '</div></div>' : '') +
     '<div class="mp-row"><span>Ämne</span><div>' + esc(m.subject) + '</div></div><pre class="mp-body">' + esc(m.body) + '</pre></div>';
 }
 function panelTexter() {
@@ -2263,7 +2330,7 @@ function onBind(t) {
       }
     } else updateMeta(i);
   }
-  var em = /^(teamLeads|cc)\.(\d+)\.email$/.exec(path);
+  var em = /^(teamLeads|cc|bcc)\.(\d+)\.email$/.exec(path);
   if (em) { var bad = !!(val.trim() && !isEmail(val)); t.classList.toggle('invalid', bad); var w = $('[data-emailwarn="' + em[1] + '-' + em[2] + '"]'); if (w) w.hidden = !bad; }
   if (t.hasAttribute('data-tpl')) { var mp = $('#mail-preview'); if (mp) mp.innerHTML = mailPreviewHtml(); }
   if (t.hasAttribute('data-qr')) { var pp = $('#poster-preview'); if (pp) pp.innerHTML = posterHtml(); }
@@ -2286,7 +2353,7 @@ app.addEventListener('click', function (e) {
   switch (a) {
     /* Personalens vy */
     case 'copy':
-      copyText('Till: ' + S.mail.to + (S.mail.cc.length ? '\nKopia: ' + S.mail.cc.map(function (c) { return c.email; }).join(', ') : '') + '\nÄmne: ' + S.mail.subject + '\n\n' + S.mail.body).then(function (ok) {
+      copyText('Till: ' + S.mail.to + (S.mail.cc.length ? '\nKopia: ' + emails(S.mail.cc).join(', ') : '') + (S.mail.bcc.length ? '\nDold kopia: ' + emails(S.mail.bcc).join(', ') : '') + '\nÄmne: ' + S.mail.subject + '\n\n' + S.mail.body).then(function (ok) {
         var st = $('#copy-status'); if (st) st.innerHTML = ok ? '<strong>Kopierat!</strong> Klistra in texten i ett nytt mail till <strong>' + esc(S.mail.to) + '</strong>.' : 'Det gick inte att kopiera. Skriv ett mail till <strong>' + esc(S.mail.to) + '</strong>.';
       });
       break;
@@ -2378,6 +2445,4 @@ window.addEventListener('beforeunload', function (e) { if (S.admin && isDirty())
 S.values = initValues();
 route();
 })();
-</script>
-</body>
-</html>
+</script></body></html>
